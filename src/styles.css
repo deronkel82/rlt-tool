@@ -229,6 +229,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 
 .palette-search {
+  flex: 0 0 auto;
   padding: 10px;
   border-bottom: 1px solid var(--border);
 }
@@ -248,6 +249,7 @@ textarea.field { height: auto; min-height: 76px; padding: 9px 11px; resize: vert
 select.field { appearance: none; background-image: none; }
 
 .palette-cats {
+  flex: 0 0 auto;
   display: flex;
   gap: 4px;
   padding: 8px 10px;
@@ -348,6 +350,7 @@ select.field { appearance: none; background-image: none; }
 }
 
 .panel-head {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -452,6 +455,7 @@ select.field { appearance: none; background-image: none; }
 .hint-text { font-size: 11.5px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
 
 .selbar {
+  flex: 0 0 auto;
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
@@ -604,8 +608,9 @@ select.field { appearance: none; background-image: none; }
 
 .rowbtns { display: flex; gap: 8px; flex-wrap: wrap; }
 .stack { display: grid; gap: 12px; }
-.sheet-body { padding: 16px; overflow-y: auto; }
+.sheet-body { flex: 1 1 auto; padding: 16px; overflow-y: auto; }
 .sheet-foot {
+  flex: 0 0 auto;
   padding: 12px 16px;
   border-top: 1px solid var(--border);
   display: flex;
