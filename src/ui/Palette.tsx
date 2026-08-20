@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CATEGORIES, SYMBOLS, searchSymbols } from '../catalog'
 import type { CategoryId, SymbolDef } from '../catalog/types'
 import { UMFAENGE, anzahlImUmfang, symbolImUmfang } from '../catalog/umfang'
@@ -15,11 +15,25 @@ const ZIEH_SCHWELLE = 10
  * der Weg zur Zeichenfläche nicht genau waagerecht sein muss.
  */
 const BLAETTER_VERHAELTNIS = 1.5
+/** So lange auf einer Kachel verweilen hebt das Symbol zum Ziehen an. */
+const HALTEDAUER = 320
 
 interface Ghost {
   def: SymbolDef
   x: number
   y: number
+}
+
+interface ZiehZustand {
+  def: SymbolDef
+  startX: number
+  startY: number
+  letztX: number
+  letztY: number
+  zeiger: number
+  ziel: HTMLElement
+  ziehen: boolean
+  verworfen: boolean
 }
 
 export function Palette({ onClose }: { onClose: () => void }) {
@@ -32,14 +46,10 @@ export function Palette({ onClose }: { onClose: () => void }) {
   const umfang = useStore((s) => s.settings.symbolumfang)
   const setSettings = useStore((s) => s.setSettings)
   const dark = useStore((s) => s.settings.theme) === 'dunkel'
-  const dragState = useRef<{
-    def: SymbolDef
-    startX: number
-    startY: number
-    zeiger: number
-    ziehen: boolean
-    verworfen: boolean
-  } | null>(null)
+
+  const zustand = useRef<ZiehZustand | null>(null)
+  const halteUhr = useRef<number | null>(null)
+  const paletteRef = useRef<HTMLElement>(null)
 
   // Suche und Kategorie filtern den gesamten Katalog; der Umfang legt danach
   // fest, was davon in der Palette erscheint.
@@ -61,80 +71,132 @@ export function Palette({ onClose }: { onClose: () => void }) {
     return CATEGORIES.map((c) => ({ cat: c, items: map.get(c.id) ?? [] })).filter((g) => g.items.length > 0)
   }, [sichtbar])
 
-  // Der Zeiger wird bewusst erst gefangen, wenn aus der Bewegung ein Ziehen
-  // geworden ist. Vorher soll der Browser frei blättern können.
-  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>, def: SymbolDef) => {
-    dragState.current = {
-      def,
-      startX: e.clientX,
-      startY: e.clientY,
-      zeiger: e.pointerId,
-      ziehen: false,
-      verworfen: false,
+  const uhrLoeschen = useCallback(() => {
+    if (halteUhr.current !== null) {
+      window.clearTimeout(halteUhr.current)
+      halteUhr.current = null
     }
-  }
+  }, [])
 
-  const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const st = dragState.current
-    if (!st || st.verworfen) return
-    const dx = e.clientX - st.startX
-    const dy = e.clientY - st.startY
+  useEffect(() => uhrLoeschen, [uhrLoeschen])
 
-    if (!st.ziehen) {
-      if (Math.hypot(dx, dy) < ZIEH_SCHWELLE) return
-      // Am Finger ist eine überwiegend senkrechte Bewegung ein Blättern in der
-      // Liste und kein Ziehen eines Symbols.
-      if (e.pointerType === 'touch' && Math.abs(dy) > Math.abs(dx) * BLAETTER_VERHAELTNIS) {
-        st.verworfen = true
-        return
-      }
-      st.ziehen = true
-      try {
-        ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-      } catch {
-        /* Ohne Zeigerfang bleibt das Ziehen innerhalb der Palette möglich. */
-      }
+  /** Symbol anheben: ab hier gehört die Geste uns. */
+  const anheben = useCallback((st: ZiehZustand) => {
+    st.ziehen = true
+    try {
+      st.ziel.setPointerCapture(st.zeiger)
+    } catch {
+      /* Ohne Zeigerfang bleibt das Ziehen möglich, solange der Finger liegt. */
     }
-    setGhost({ def: st.def, x: e.clientX, y: e.clientY })
-  }
+    setGhost({ def: st.def, x: st.letztX, y: st.letztY })
+  }, [])
 
-  const beenden = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const st = dragState.current
-    dragState.current = null
+  /**
+   * Ablegen. Über der Palette selbst wird nichts gesetzt — dort läge das
+   * Bauteil hinter dem Fenster. Stattdessen bleibt das Symbol vorgemerkt,
+   * sodass ein Tippen auf die Fläche es platziert.
+   */
+  const ablegen = useCallback(
+    (def: SymbolDef, x: number, y: number): boolean => {
+      const p = paletteRef.current?.getBoundingClientRect()
+      const ueberPalette = !!p && x >= p.left && x <= p.right && y >= p.top && y <= p.bottom
+      if (!ueberPalette && canvasApi.isInside?.(x, y) && canvasApi.screenToWorld) {
+        const welt = canvasApi.screenToWorld(x, y)
+        addNode(def.id, welt.x, welt.y, { center: true })
+        setArmed(null)
+        return true
+      }
+      setArmed(def.id)
+      return false
+    },
+    [addNode, setArmed],
+  )
+
+  const beenden = useCallback((): ZiehZustand | null => {
+    const st = zustand.current
+    zustand.current = null
+    uhrLoeschen()
     setGhost(null)
     if (st?.ziehen) {
       try {
-        ;(e.currentTarget as HTMLElement).releasePointerCapture(st.zeiger)
+        st.ziel.releasePointerCapture(st.zeiger)
       } catch {
         /* Zeiger war nicht erfasst */
       }
     }
     return st
+  }, [uhrLoeschen])
+
+  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>, def: SymbolDef) => {
+    const st: ZiehZustand = {
+      def,
+      startX: e.clientX,
+      startY: e.clientY,
+      letztX: e.clientX,
+      letztY: e.clientY,
+      zeiger: e.pointerId,
+      ziel: e.currentTarget,
+      ziehen: false,
+      verworfen: false,
+    }
+    zustand.current = st
+    uhrLoeschen()
+    // Liegt der Finger ruhig, wird das Symbol angehoben. Das ist der Weg, der
+    // nicht davon abhängt, wie der Browser die Bewegung einordnet.
+    halteUhr.current = window.setTimeout(() => {
+      halteUhr.current = null
+      const akt = zustand.current
+      if (akt === st && !akt.verworfen && !akt.ziehen) anheben(akt)
+    }, HALTEDAUER)
+  }
+
+  const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const st = zustand.current
+    if (!st) return
+    st.letztX = e.clientX
+    st.letztY = e.clientY
+    if (st.verworfen) return
+
+    if (!st.ziehen) {
+      const dx = e.clientX - st.startX
+      const dy = e.clientY - st.startY
+      if (Math.hypot(dx, dy) < ZIEH_SCHWELLE) return
+      uhrLoeschen()
+      // Am Finger ist eine deutlich senkrechte Bewegung ein Blättern in der
+      // Liste und kein Ziehen eines Symbols.
+      if (e.pointerType === 'touch' && Math.abs(dy) > Math.abs(dx) * BLAETTER_VERHAELTNIS) {
+        st.verworfen = true
+        return
+      }
+      anheben(st)
+      return
+    }
+    setGhost({ def: st.def, x: e.clientX, y: e.clientY })
   }
 
   const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
-    const st = beenden(e)
+    const st = beenden()
     if (!st || st.verworfen) return
     if (st.ziehen) {
-      if (canvasApi.isInside?.(e.clientX, e.clientY) && canvasApi.screenToWorld) {
-        const p = canvasApi.screenToWorld(e.clientX, e.clientY)
-        addNode(st.def.id, p.x, p.y, { center: true })
-        setArmed(null)
-      }
+      ablegen(st.def, e.clientX, e.clientY)
       return
     }
     // Antippen: Symbol vormerken, dann auf die Fläche tippen.
     setArmed(armed === st.def.id ? null : st.def.id)
   }
 
-  // Übernimmt der Browser die Geste zum Blättern, bricht er den Zeiger ab.
-  // Daraus darf weder ein Ziehen noch ein Antippen werden.
-  const onPointerCancel = (e: React.PointerEvent<HTMLButtonElement>) => {
-    beenden(e)
+  /**
+   * Der Browser bricht den Zeiger ab, wenn er die Geste selbst übernimmt.
+   * Hing bereits ein Symbol am Finger, ist die Absicht eindeutig — dann wird
+   * an der zuletzt bekannten Stelle abgelegt, statt die Geste zu verlieren.
+   */
+  const onPointerCancel = () => {
+    const st = beenden()
+    if (st?.ziehen) ablegen(st.def, st.letztX, st.letztY)
   }
 
   return (
-    <aside className="palette" aria-label="Symbolpalette">
+    <aside className={`palette${ghost ? ' hebt' : ''}`} aria-label="Symbolpalette" ref={paletteRef}>
       <div className="panel-head">
         <h2>
           Symbole
@@ -203,13 +265,14 @@ export function Palette({ onClose }: { onClose: () => void }) {
               {g.items.map((def) => (
                 <button
                   key={def.id}
-                  className="palette-item"
+                  className={`palette-item${ghost?.def.id === def.id ? ' angehoben' : ''}`}
                   aria-pressed={armed === def.id}
                   title={`${def.label}${def.norm ? ` — ${def.norm}` : ''}`}
                   onPointerDown={(e) => onPointerDown(e, def)}
                   onPointerMove={onPointerMove}
                   onPointerUp={onPointerUp}
                   onPointerCancel={onPointerCancel}
+                  onContextMenu={(e) => e.preventDefault()}
                 >
                   <SymbolPreview def={def} dark={dark} />
                   <span>{def.label}</span>

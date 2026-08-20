@@ -378,6 +378,20 @@ select.field { appearance: none; background-image: none; }
   min-height: 22px;
 }
 
+/* Während ein Symbol am Finger hängt, darf die Liste nicht mehr blättern —
+   sonst könnte der Browser die Geste mitten im Ziehen übernehmen. */
+.palette.hebt .palette-list {
+  overflow: hidden;
+  touch-action: none;
+}
+
+.palette.hebt .palette-item { touch-action: none; }
+
+.palette-item.angehoben {
+  opacity: 0.4;
+  border-style: dashed;
+}
+
 .palette-ghost {
   position: fixed;
   z-index: 60;
