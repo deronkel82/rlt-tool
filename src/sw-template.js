@@ -1,20 +1,24 @@
 /*
  * Service Worker für RLT-Schema. Die Platzhalter werden beim Bauen ersetzt
- * (siehe vite.config.ts). Strategie: alles Nötige beim Installieren in den
- * Vorrat legen, danach zuerst aus dem Vorrat bedienen. So startet die App auf
- * dem iPad auch ohne Netzverbindung.
+ * (siehe vite.config.ts).
+ *
+ * Strategie:
+ * - Der Seitenaufruf geht zuerst ans Netz, damit eine neu veröffentlichte
+ *   Fassung sofort ankommt; erst wenn das Netz fehlt oder zu lange braucht,
+ *   kommt die Seite aus dem Vorrat. Ohne das bliebe die App auf dem Stand
+ *   stehen, der beim Ablegen auf dem Home-Bildschirm aktuell war.
+ * - Alles Übrige trägt eine Prüfsumme im Dateinamen und kann darum bedenkenlos
+ *   zuerst aus dem Vorrat kommen.
  */
 const CACHE = '__CACHE_NAME__'
 const BASE = '__BASE__'
 const ASSETS = __ASSETS__
 
+/** Nach dieser Zeit gilt das Netz als nicht verfügbar. */
+const NETZ_TIMEOUT = 3500
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) => cache.addAll(ASSETS))
-      .then(() => self.skipWaiting()),
-  )
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)))
 })
 
 self.addEventListener('activate', (event) => {
@@ -26,9 +30,27 @@ self.addEventListener('activate', (event) => {
   )
 })
 
+// Die Seite bittet um sofortiges Übernehmen, wenn der Nutzer die neue Fassung
+// laden möchte.
 self.addEventListener('message', (event) => {
   if (event.data === 'sofort-aktualisieren') self.skipWaiting()
 })
+
+function mitZeitgrenze(request) {
+  return new Promise((erfuellen, ablehnen) => {
+    const uhr = setTimeout(() => ablehnen(new Error('Zeitüberschreitung')), NETZ_TIMEOUT)
+    fetch(request).then(
+      (antwort) => {
+        clearTimeout(uhr)
+        erfuellen(antwort)
+      },
+      (fehler) => {
+        clearTimeout(uhr)
+        ablehnen(fehler)
+      },
+    )
+  })
+}
 
 self.addEventListener('fetch', (event) => {
   const request = event.request
@@ -37,15 +59,25 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
 
-  // Seitenaufrufe immer auf die App-Seite zurückführen, damit ein Neuladen
-  // auch offline funktioniert.
+  // Seitenaufruf: zuerst das Netz, dann der Vorrat.
   if (request.mode === 'navigate') {
     event.respondWith(
-      caches.match(BASE + 'index.html').then((treffer) => treffer || fetch(request)),
+      mitZeitgrenze(new Request(url.href, { cache: 'no-cache', credentials: 'same-origin' }))
+        .then((antwort) => {
+          if (antwort.ok) {
+            const kopie = antwort.clone()
+            caches.open(CACHE).then((cache) => cache.put(BASE + 'index.html', kopie))
+          }
+          return antwort
+        })
+        .catch(() =>
+          caches.match(BASE + 'index.html').then((treffer) => treffer || fetch(request)),
+        ),
     )
     return
   }
 
+  // Übrige Dateien: zuerst der Vorrat, sonst nachladen und aufnehmen.
   event.respondWith(
     caches.match(request).then((treffer) => {
       if (treffer) return treffer

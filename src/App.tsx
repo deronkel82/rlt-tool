@@ -7,6 +7,7 @@ import { buildThumbnail } from './export/svg'
 import { beispielDoc } from './state/beispiel'
 import { useStore } from './state/store'
 import { emptyDoc, type RltDoc } from './state/types'
+import { AKTUALISIERUNG, aktualisierungAnwenden } from './pwa'
 import { deleteProject, getProject, newProjectId, putProject } from './storage/db'
 import { BomPanel } from './ui/BomPanel'
 import { ExportDialog } from './ui/ExportDialog'
@@ -36,6 +37,7 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [toast, setToast] = useState<{ msg: string; error?: boolean } | null>(null)
+  const [aktualisierung, setAktualisierung] = useState<ServiceWorkerRegistration | null>(null)
 
   const createdAt = useRef<number>(Date.now())
   const saveTimer = useRef<number | null>(null)
@@ -48,6 +50,13 @@ export function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
+
+  // Eine neu veröffentlichte Fassung meldet sich über den Service Worker.
+  useEffect(() => {
+    const gemeldet = (e: Event) => setAktualisierung((e as CustomEvent<ServiceWorkerRegistration>).detail)
+    window.addEventListener(AKTUALISIERUNG, gemeldet)
+    return () => window.removeEventListener(AKTUALISIERUNG, gemeldet)
+  }, [])
 
   useEffect(() => {
     const onResize = () => {
@@ -252,6 +261,18 @@ export function App() {
       ) : null}
 
       {toast ? <div className={`toast${toast.error ? ' error' : ''}`} role="status">{toast.msg}</div> : null}
+
+      {aktualisierung ? (
+        <div className="toast aktion" role="status">
+          <span>Eine neue Fassung ist verfügbar.</span>
+          <button className="toast-btn" onClick={() => aktualisierungAnwenden(aktualisierung)}>
+            Jetzt laden
+          </button>
+          <button className="toast-btn schlicht" onClick={() => setAktualisierung(null)} aria-label="Hinweis schließen">
+            Später
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }

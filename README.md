@@ -127,3 +127,16 @@ wird beim Bauen aus dem Repository-Namen abgeleitet.
 Auf dem iPad die veröffentlichte Adresse in Safari öffnen, über *Teilen* →
 *Zum Home-Bildschirm* ablegen. Danach startet das Werkzeug im Vollbild und läuft
 ohne Netzverbindung.
+
+### Wie Aktualisierungen ankommen
+
+Der Seitenaufruf geht zuerst ans Netz und erst bei fehlender Verbindung an den
+Offline-Vorrat. Eine neu veröffentlichte Fassung ist damit beim nächsten Start
+da, ohne dass das Symbol vom Home-Bildschirm entfernt werden muss. Läuft die App
+gerade, meldet sie sich mit einem Hinweis und lädt auf Wunsch sofort neu; beim
+Zurückholen in den Vordergrund sieht sie zusätzlich selbst nach.
+
+Damit das trägt, darf der Seitenaufruf im Service Worker nicht aus dem Vorrat
+beantwortet werden: die gespeicherte `index.html` verweist auf Dateinamen mit
+Prüfsumme und würde die App sonst dauerhaft auf dem installierten Stand
+festhalten.
