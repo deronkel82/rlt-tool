@@ -6,11 +6,13 @@
   "description": "Drag-and-drop Zeichenwerkzeug fuer RLT-Anlagenschemata nach DIN EN 12792",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "icons": "node scripts/icons.mjs",
+    "vorschau": "vite-node scripts/render-beispiel.mts"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -18,13 +20,13 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@types/node": "^26.2.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "jsdom": "^25.0.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
-    "vite-plugin-pwa": "^0.21.1",
     "vitest": "^2.1.8"
   }
 }
