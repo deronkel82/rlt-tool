@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { ParamValue, SymbolDef } from '../catalog/types'
 import { defaultParams, defaultVisibleParams, getSymbol, requireSymbol } from '../catalog'
 import { defaultEdgeParams, defaultEdgeVisible } from '../catalog/edge'
+import type { Umfang } from '../catalog/umfang'
 import type { AirType, FluidType } from '../theme'
 import type { EdgeEnd, EdgeKind, RltDoc, RltEdge, RltNode, Rotation, Viewport } from './types'
 import { emptyDoc, newId } from './types'
@@ -17,6 +18,8 @@ export interface Settings {
   fangen: boolean
   strangModus: boolean
   rasterweite: number
+  /** Wie viele Symbole die Palette anbietet — wirkt nur auf die Palette. */
+  symbolumfang: Umfang
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -26,6 +29,7 @@ const DEFAULT_SETTINGS: Settings = {
   fangen: true,
   strangModus: true,
   rasterweite: 8,
+  symbolumfang: 'mittel',
 }
 
 export interface Store {

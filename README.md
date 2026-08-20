@@ -13,6 +13,13 @@ ersten Laden vollständig offline.
 - **115 Normsymbole** in neun Kategorien — Luftbehandlung, Wärmerückgewinnung,
   Klappen und Brandschutz, Kanal und Formteile, Luftdurchlässe, MSR und Sensorik,
   Wasser- und Kältekreis, Erzeuger sowie Räume und Beschriftung.
+- **Umschaltbarer Umfang der Bibliothek** — *Reduziert* (27 Symbole) zeigt nur die
+  Bauteile eines RLT-Zentralgeräts, Durchlässe, Grundfühler und Räume; *Mittel*
+  (73) ergänzt Bauartvarianten, Kanalformteile, Brandschutz, MSR und Erzeuger;
+  *Groß* zeigt den vollständigen Katalog. Die Einstellung wirkt nur auf die
+  Palette — bereits gezeichnete Bauteile bleiben unabhängig davon erhalten und
+  bearbeitbar. Führt eine Suche auf ein Symbol außerhalb des gewählten Umfangs,
+  weist die Palette darauf hin und bietet das Umschalten an.
 - **Nutzungseinheiten** als eigener, frei skalierbarer Symboltyp: Der versorgte
   Raum steht mit im Schema und trägt seine Auslegungsdaten — Fläche, Höhe,
   Personenzahl, Zu- und Abluftmenge, Sollwerte, Druckhaltung, Raumluftqualität.
@@ -93,6 +100,12 @@ src/
 Die Symbolkomponenten aus `catalog` werden sowohl von der Zeichenfläche als auch
 vom SVG-Export gerendert. Ein Symbol ist damit einmal definiert und kann zwischen
 Anzeige und Ausgabe nicht auseinanderlaufen.
+
+**Den Umfang einer Stufe ändern**: die Listen in `src/catalog/umfang.ts`
+anpassen. `REDUZIERT` enthält den Kernbestand, `MITTEL_ZUSATZ` was der mittlere
+Satz darüber hinaus anbietet; die volle Stufe umfasst immer den ganzen Katalog.
+Die Tests prüfen, dass jede genannte Kennung existiert und die Stufen
+aufeinander aufbauen.
 
 **Ein Symbol ergänzen**: einen Eintrag in der passenden Datei unter
 `src/catalog/symbols/` anlegen — Kennung, Bezeichnung, Kategorie,

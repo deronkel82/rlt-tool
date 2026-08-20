@@ -74,19 +74,43 @@ export function SymbolGlyph({ node, o }: { node: RltNode; o: RenderOptions }): R
   )
 }
 
-export function NodeLabel({ node, o }: { node: RltNode; o: RenderOptions }): ReactNode {
-  if (node.hideLabel) return null
-  const def = requireSymbol(node.type)
+export interface LabelLage {
+  /** Bezugspunkt der ersten Textzeile */
+  x: number
+  y: number
+  anchor: 'start' | 'middle' | 'end'
+  lines: string[]
+  /** Umschließendes Rechteck, für Trefferfläche und Randberechnung */
+  box: { x: number; y: number; w: number; h: number }
+}
+
+/**
+ * Lage der Beschriftung einer Komponente. Darstellung und Trefferfläche
+ * greifen auf dieselbe Rechnung zu, damit beide nicht auseinanderlaufen.
+ */
+export function nodeLabelLage(node: RltNode, def: SymbolDef): LabelLage {
   const lines = nodeLabelLines(node, def)
   const b = nodeBounds(node)
   const background = def.layer === 'background'
-  // MSR-Kreise haengen an einer gestrichelten Wirkungslinie nach unten; ihre
-  // Beschriftung gehoert darum über das Symbol.
+  // MSR-Kreise hängen an einer gestrichelten Wirkungslinie nach unten; ihre
+  // Beschriftung gehört darum über das Symbol.
   const oben = def.category === 'msr'
-  const anchor = background ? 'end' : 'middle'
+  const anchor: 'start' | 'middle' | 'end' = background ? 'end' : 'middle'
   const x = (background ? b.x + b.w - 9 : b.x + b.w / 2) + node.labelDx
   const y =
     (background ? b.y + 16 : oben ? b.y - 6 - lines.length * LINE_HEIGHT : b.y + b.h + 13) + node.labelDy
+
+  const laengste = Math.max(node.tag.length, ...lines.map((l) => l.length), 1)
+  const w = laengste * 5.4 + 10
+  const h = (lines.length + 1) * LINE_HEIGHT + 4
+  const left = anchor === 'end' ? x - w : x - w / 2
+  return { x, y, anchor, lines, box: { x: left, y: y - TAG_SIZE, w, h } }
+}
+
+export function NodeLabel({ node, o }: { node: RltNode; o: RenderOptions }): ReactNode {
+  if (node.hideLabel) return null
+  const def = requireSymbol(node.type)
+  const { x, y, anchor, lines } = nodeLabelLage(node, def)
   return (
     <g fontFamily={FONT} textAnchor={anchor} stroke="none">
       <text x={round(x)} y={round(y)} fontSize={TAG_SIZE} fontWeight={600} fill={o.theme.text}>

@@ -9,7 +9,7 @@ import {
   dist, findPort, nodeBounds, polylinePath, portPoint, rectsIntersect, routeOrthogonal, snap,
   type Pt, type Rect,
 } from './geometry'
-import { EdgeLine, Schematic, edgePoints, nodeLabelLines } from './Schematic'
+import { EdgeLine, Schematic, edgePoints, nodeLabelLage } from './Schematic'
 import { findSnap, nearestPort } from './snapping'
 
 type Gesture =
@@ -705,19 +705,11 @@ function InteractionLayer({
       <g>
         {doc.nodes.map((n) => {
           if (n.hideLabel) return null
-          const def = requireSymbol(n.type)
-          const lines = nodeLabelLines(n, def)
-          const b = nodeBounds(n)
-          const bg = def.layer === 'background'
-          const longest = Math.max(n.tag.length, ...lines.map((l) => l.length), 1)
-          const w = longest * 5.4 + 8
-          const h = (lines.length + 1) * 11.5 + 4
-          const cx = (bg ? b.x + b.w - 9 - w / 2 : b.x + b.w / 2) + n.labelDx
-          const y = (bg ? b.y + 6 : b.y + b.h + 3) + n.labelDy
+          const { box } = nodeLabelLage(n, requireSymbol(n.type))
           return (
             <rect
               key={n.id} data-label={n.id} data-kind="node"
-              x={cx - w / 2} y={y} width={w} height={h}
+              x={box.x} y={box.y} width={box.w} height={box.h}
               fill="transparent" style={{ cursor: 'move' }}
             />
           )

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { CATEGORIES, SYMBOLS, searchSymbols } from '../catalog'
 import type { CategoryId, SymbolDef } from '../catalog/types'
+import { UMFAENGE, anzahlImUmfang, symbolImUmfang } from '../catalog/umfang'
 import { canvasApi } from '../canvas/api'
 import { useStore } from '../state/store'
 import { IconClose, IconSearch } from './icons'
@@ -19,23 +20,30 @@ export function Palette({ onClose }: { onClose: () => void }) {
   const armed = useStore((s) => s.armed)
   const setArmed = useStore((s) => s.setArmed)
   const addNode = useStore((s) => s.addNode)
+  const umfang = useStore((s) => s.settings.symbolumfang)
+  const setSettings = useStore((s) => s.setSettings)
   const dark = useStore((s) => s.settings.theme) === 'dunkel'
   const dragState = useRef<{ def: SymbolDef; startX: number; startY: number; moved: boolean } | null>(null)
 
-  const list = useMemo(() => {
+  // Suche und Kategorie filtern den gesamten Katalog; der Umfang legt danach
+  // fest, was davon in der Palette erscheint.
+  const passend = useMemo(() => {
     const base = query.trim() ? searchSymbols(query) : SYMBOLS
     return category === 'alle' ? base : base.filter((s) => s.category === category)
   }, [query, category])
 
+  const sichtbar = useMemo(() => passend.filter((s) => symbolImUmfang(s.id, umfang)), [passend, umfang])
+  const verborgen = passend.length - sichtbar.length
+
   const grouped = useMemo(() => {
     const map = new Map<CategoryId, SymbolDef[]>()
-    for (const s of list) {
+    for (const s of sichtbar) {
       const arr = map.get(s.category) ?? []
       arr.push(s)
       map.set(s.category, arr)
     }
     return CATEGORIES.map((c) => ({ cat: c, items: map.get(c.id) ?? [] })).filter((g) => g.items.length > 0)
-  }, [list])
+  }, [sichtbar])
 
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>, def: SymbolDef) => {
     try {
@@ -81,7 +89,10 @@ export function Palette({ onClose }: { onClose: () => void }) {
   return (
     <aside className="palette" aria-label="Symbolpalette">
       <div className="panel-head">
-        <h2>Symbole<span className="sub">{SYMBOLS.length} Normsymbole</span></h2>
+        <h2>
+          Symbole
+          <span className="sub">{anzahlImUmfang(umfang)} von {SYMBOLS.length} Normsymbolen</span>
+        </h2>
         <button className="iconbtn" onClick={onClose} aria-label="Palette schließen"><IconClose /></button>
       </div>
 
@@ -99,6 +110,20 @@ export function Palette({ onClose }: { onClose: () => void }) {
             aria-label="Symbol suchen"
           />
         </div>
+
+        <div className="palette-umfang" role="group" aria-label="Umfang der Bibliothek">
+          {UMFAENGE.map((u) => (
+            <button
+              key={u.id}
+              className="seg"
+              aria-pressed={umfang === u.id}
+              title={`${u.label} — ${u.hinweis} (${anzahlImUmfang(u.id)} Symbole)`}
+              onClick={() => setSettings({ symbolumfang: u.id })}
+            >
+              {u.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="palette-cats" role="group" aria-label="Kategorien">
@@ -111,7 +136,19 @@ export function Palette({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="palette-list">
-        {grouped.length === 0 ? <p className="empty-hint">Kein Symbol gefunden.</p> : null}
+        {grouped.length === 0 && verborgen === 0 ? <p className="empty-hint">Kein Symbol gefunden.</p> : null}
+
+        {verborgen > 0 ? (
+          <p className="umfang-hinweis">
+            {verborgen === 1
+              ? 'Ein weiteres Symbol liegt außerhalb des gewählten Umfangs.'
+              : `${verborgen} weitere Symbole liegen außerhalb des gewählten Umfangs.`}{' '}
+            <button className="linkbtn" onClick={() => setSettings({ symbolumfang: 'gross' })}>
+              Vollen Satz anzeigen
+            </button>
+          </p>
+        ) : null}
+
         {grouped.map((g) => (
           <div key={g.cat.id}>
             <div className="palette-group-title">{g.cat.label}</div>
