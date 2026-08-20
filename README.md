@@ -20,6 +20,8 @@ ersten Laden vollständig offline.
   Palette — bereits gezeichnete Bauteile bleiben unabhängig davon erhalten und
   bearbeitbar. Führt eine Suche auf ein Symbol außerhalb des gewählten Umfangs,
   weist die Palette darauf hin und bietet das Umschalten an.
+- **Einstellbare Symbolgröße** — ein Regler am unteren Rand der Palette skaliert
+  Kachel, Vorschau und Beschriftung gemeinsam; die Einstellung wird gespeichert.
 - **Nutzungseinheiten** als eigener, frei skalierbarer Symboltyp: Der versorgte
   Raum steht mit im Schema und trägt seine Auslegungsdaten — Fläche, Höhe,
   Personenzahl, Zu- und Abluftmenge, Sollwerte, Druckhaltung, Raumluftqualität.

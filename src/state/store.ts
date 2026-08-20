@@ -20,6 +20,18 @@ export interface Settings {
   rasterweite: number
   /** Wie viele Symbole die Palette anbietet — wirkt nur auf die Palette. */
   symbolumfang: Umfang
+  /** Kantenlänge einer Symbolkachel in der Palette, in Bildpunkten. */
+  symbolgroesse: number
+}
+
+export const KACHEL_MIN = 52
+export const KACHEL_MAX = 112
+export const KACHEL_STANDARD = 64
+
+/** Auf den zulässigen Bereich begrenzen, damit gespeicherter Unsinn nicht die Ansicht zerlegt. */
+export function kachelGroesse(wert: unknown): number {
+  const n = typeof wert === 'number' && Number.isFinite(wert) ? wert : KACHEL_STANDARD
+  return Math.min(KACHEL_MAX, Math.max(KACHEL_MIN, Math.round(n)))
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -30,6 +42,7 @@ const DEFAULT_SETTINGS: Settings = {
   strangModus: true,
   rasterweite: 8,
   symbolumfang: 'mittel',
+  symbolgroesse: KACHEL_STANDARD,
 }
 
 export interface Store {
@@ -86,7 +99,10 @@ export interface Store {
 function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem('rlt.settings')
-    if (raw) return { ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<Settings>) }
+    if (raw) {
+      const gespeichert = { ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<Settings>) }
+      return { ...gespeichert, symbolgroesse: kachelGroesse(gespeichert.symbolgroesse) }
+    }
   } catch {
     /* Voreinstellungen genügen */
   }

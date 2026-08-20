@@ -3,7 +3,7 @@ import { CATEGORIES, SYMBOLS, searchSymbols } from '../catalog'
 import type { CategoryId, SymbolDef } from '../catalog/types'
 import { UMFAENGE, anzahlImUmfang, symbolImUmfang } from '../catalog/umfang'
 import { canvasApi } from '../canvas/api'
-import { useStore } from '../state/store'
+import { KACHEL_MAX, KACHEL_MIN, kachelGroesse, useStore } from '../state/store'
 import { IconClose, IconSearch } from './icons'
 import { SymbolPreview } from './SymbolPreview'
 
@@ -50,6 +50,12 @@ export function Palette({ onClose }: { onClose: () => void }) {
   const umfang = useStore((s) => s.settings.symbolumfang)
   const setSettings = useStore((s) => s.setSettings)
   const dark = useStore((s) => s.settings.theme) === 'dunkel'
+  const kachel = kachelGroesse(useStore((s) => s.settings.symbolgroesse))
+
+  // Vorschau und Schrift wachsen mit der Kachel, damit das Verhältnis stimmt.
+  const vorschauBreite = Math.round(kachel - 14)
+  const vorschauHoehe = Math.round(vorschauBreite * 0.68)
+  const schrift = Math.round((6 + kachel * 0.055) * 10) / 10
 
   const zustand = useRef<ZiehZustand | null>(null)
   const halteUhr = useRef<number | null>(null)
@@ -200,7 +206,12 @@ export function Palette({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <aside className={`palette${ghost ? ' hebt' : ''}`} aria-label="Symbolpalette" ref={paletteRef}>
+    <aside
+      className={`palette${ghost ? ' hebt' : ''}`}
+      aria-label="Symbolpalette"
+      ref={paletteRef}
+      style={{ '--kachel': `${kachel}px`, '--kachel-schrift': `${schrift}px` } as React.CSSProperties}
+    >
       <div className="panel-head">
         <h2>
           Symbole
@@ -278,7 +289,7 @@ export function Palette({ onClose }: { onClose: () => void }) {
                   onPointerCancel={onPointerCancel}
                   onContextMenu={(e) => e.preventDefault()}
                 >
-                  <SymbolPreview def={def} dark={dark} />
+                  <SymbolPreview def={def} w={vorschauBreite} h={vorschauHoehe} dark={dark} />
                   <span>{def.label}</span>
                 </button>
               ))}
@@ -287,9 +298,23 @@ export function Palette({ onClose }: { onClose: () => void }) {
         ))}
       </div>
 
+      <div className="palette-fuss">
+        <label htmlFor="symbolgroesse">Größe</label>
+        <input
+          id="symbolgroesse"
+          type="range"
+          min={KACHEL_MIN}
+          max={KACHEL_MAX}
+          step={4}
+          value={kachel}
+          onChange={(e) => setSettings({ symbolgroesse: Number(e.target.value) })}
+          aria-label="Symbolgröße in der Palette"
+        />
+      </div>
+
       {ghost ? (
-        <div className="palette-ghost" style={{ left: ghost.x - 28, top: ghost.y - 24 }}>
-          <SymbolPreview def={ghost.def} w={52} h={38} dark={dark} />
+        <div className="palette-ghost" style={{ left: ghost.x - vorschauBreite / 2, top: ghost.y - vorschauHoehe / 2 }}>
+          <SymbolPreview def={ghost.def} w={vorschauBreite} h={vorschauHoehe} dark={dark} />
         </div>
       ) : null}
     </aside>
