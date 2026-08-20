@@ -15,8 +15,12 @@ const ZIEH_SCHWELLE = 10
  * der Weg zur Zeichenfläche nicht genau waagerecht sein muss.
  */
 const BLAETTER_VERHAELTNIS = 1.5
-/** So lange auf einer Kachel verweilen hebt das Symbol zum Ziehen an. */
-const HALTEDAUER = 320
+/**
+ * So lange auf einer Kachel verweilen hebt das Symbol zum Ziehen an. Der Wert
+ * liegt nahe an dem, was das System selbst für ein langes Drücken ansetzt —
+ * kürzer würde beim kurzen Zögern vor dem Blättern versehentlich auslösen.
+ */
+const HALTEDAUER = 450
 
 interface Ghost {
   def: SymbolDef
