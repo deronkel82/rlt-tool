@@ -7,6 +7,15 @@ import { useStore } from '../state/store'
 import { IconClose, IconSearch } from './icons'
 import { SymbolPreview } from './SymbolPreview'
 
+/** Ab dieser Strecke gilt eine Bewegung als Ziehen und nicht mehr als Tippen. */
+const ZIEH_SCHWELLE = 10
+/**
+ * Ab diesem Verhältnis von senkrechter zu waagerechter Strecke gilt eine
+ * Fingerbewegung als Blättern. Schräge Bewegungen bleiben ein Ziehen, damit
+ * der Weg zur Zeichenfläche nicht genau waagerecht sein muss.
+ */
+const BLAETTER_VERHAELTNIS = 1.5
+
 interface Ghost {
   def: SymbolDef
   x: number
@@ -23,7 +32,14 @@ export function Palette({ onClose }: { onClose: () => void }) {
   const umfang = useStore((s) => s.settings.symbolumfang)
   const setSettings = useStore((s) => s.setSettings)
   const dark = useStore((s) => s.settings.theme) === 'dunkel'
-  const dragState = useRef<{ def: SymbolDef; startX: number; startY: number; moved: boolean } | null>(null)
+  const dragState = useRef<{
+    def: SymbolDef
+    startX: number
+    startY: number
+    zeiger: number
+    ziehen: boolean
+    verworfen: boolean
+  } | null>(null)
 
   // Suche und Kategorie filtern den gesamten Katalog; der Umfang legt danach
   // fest, was davon in der Palette erscheint.
@@ -45,36 +61,61 @@ export function Palette({ onClose }: { onClose: () => void }) {
     return CATEGORIES.map((c) => ({ cat: c, items: map.get(c.id) ?? [] })).filter((g) => g.items.length > 0)
   }, [sichtbar])
 
+  // Der Zeiger wird bewusst erst gefangen, wenn aus der Bewegung ein Ziehen
+  // geworden ist. Vorher soll der Browser frei blättern können.
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>, def: SymbolDef) => {
-    try {
-      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-    } catch {
-      /* Ohne Zeigerfang bleibt Antippen und Ziehen innerhalb der Palette möglich. */
+    dragState.current = {
+      def,
+      startX: e.clientX,
+      startY: e.clientY,
+      zeiger: e.pointerId,
+      ziehen: false,
+      verworfen: false,
     }
-    dragState.current = { def, startX: e.clientX, startY: e.clientY, moved: false }
   }
 
   const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     const st = dragState.current
-    if (!st) return
-    const moved = Math.hypot(e.clientX - st.startX, e.clientY - st.startY) > 8
-    if (moved) {
-      st.moved = true
-      setGhost({ def: st.def, x: e.clientX, y: e.clientY })
+    if (!st || st.verworfen) return
+    const dx = e.clientX - st.startX
+    const dy = e.clientY - st.startY
+
+    if (!st.ziehen) {
+      if (Math.hypot(dx, dy) < ZIEH_SCHWELLE) return
+      // Am Finger ist eine überwiegend senkrechte Bewegung ein Blättern in der
+      // Liste und kein Ziehen eines Symbols.
+      if (e.pointerType === 'touch' && Math.abs(dy) > Math.abs(dx) * BLAETTER_VERHAELTNIS) {
+        st.verworfen = true
+        return
+      }
+      st.ziehen = true
+      try {
+        ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+      } catch {
+        /* Ohne Zeigerfang bleibt das Ziehen innerhalb der Palette möglich. */
+      }
     }
+    setGhost({ def: st.def, x: e.clientX, y: e.clientY })
   }
 
-  const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const beenden = (e: React.PointerEvent<HTMLButtonElement>) => {
     const st = dragState.current
     dragState.current = null
     setGhost(null)
-    try {
-      ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
-    } catch {
-      /* Zeiger war nicht erfasst */
+    if (st?.ziehen) {
+      try {
+        ;(e.currentTarget as HTMLElement).releasePointerCapture(st.zeiger)
+      } catch {
+        /* Zeiger war nicht erfasst */
+      }
     }
-    if (!st) return
-    if (st.moved) {
+    return st
+  }
+
+  const onPointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const st = beenden(e)
+    if (!st || st.verworfen) return
+    if (st.ziehen) {
       if (canvasApi.isInside?.(e.clientX, e.clientY) && canvasApi.screenToWorld) {
         const p = canvasApi.screenToWorld(e.clientX, e.clientY)
         addNode(st.def.id, p.x, p.y, { center: true })
@@ -84,6 +125,12 @@ export function Palette({ onClose }: { onClose: () => void }) {
     }
     // Antippen: Symbol vormerken, dann auf die Fläche tippen.
     setArmed(armed === st.def.id ? null : st.def.id)
+  }
+
+  // Übernimmt der Browser die Geste zum Blättern, bricht er den Zeiger ab.
+  // Daraus darf weder ein Ziehen noch ein Antippen werden.
+  const onPointerCancel = (e: React.PointerEvent<HTMLButtonElement>) => {
+    beenden(e)
   }
 
   return (
@@ -162,7 +209,7 @@ export function Palette({ onClose }: { onClose: () => void }) {
                   onPointerDown={(e) => onPointerDown(e, def)}
                   onPointerMove={onPointerMove}
                   onPointerUp={onPointerUp}
-                  onPointerCancel={onPointerUp}
+                  onPointerCancel={onPointerCancel}
                 >
                   <SymbolPreview def={def} dark={dark} />
                   <span>{def.label}</span>

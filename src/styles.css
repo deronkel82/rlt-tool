@@ -356,9 +356,12 @@ select.field { appearance: none; background-image: none; }
   align-items: center;
   gap: 3px;
   cursor: grab;
-  touch-action: none;
+  /* Senkrechtes Blättern bleibt beim Browser; waagerechtes Ziehen kommt bei
+     uns an. Ohne das würde jede Fingerbewegung ein Symbol verschieben. */
+  touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .palette-item:hover { border-color: var(--border-strong); background: var(--panel-3); }
 .palette-item[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); }

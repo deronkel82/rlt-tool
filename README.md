@@ -64,7 +64,12 @@ ersten Laden vollständig offline.
 | Ziehen von einem Anschlusspunkt | Leitung legen |
 | Symbol in der Palette antippen, dann auf die Fläche tippen | Bauteil setzen |
 | Symbol aus der Palette herüberziehen | Bauteil setzen |
+| In der Palette senkrecht wischen | Symbolliste blättern |
 | Apple Pencil auf freier Fläche | Auswahlrahmen aufziehen |
+
+In der Palette entscheidet die Richtung: senkrecht wischen blättert die Liste,
+waagerecht oder schräg ziehen nimmt ein Symbol mit. Antippen merkt es zum
+Platzieren vor.
 
 Am Schreibtisch zusätzlich: `Entf` löscht, `Strg+Z` / `Strg+Umschalt+Z` für
 Rückgängig und Wiederherstellen, `Strg+D` dupliziert, `R` dreht, `H` spiegelt,
